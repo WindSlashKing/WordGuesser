@@ -1,0 +1,1 @@
+C:\Users\babag\Documents\GitHub\WordGuesser\word_guesser\target\release\word_guesser.exe: C:\Users\babag\Documents\GitHub\WordGuesser\word_guesser\src\inputs.rs C:\Users\babag\Documents\GitHub\WordGuesser\word_guesser\src\main.rs
