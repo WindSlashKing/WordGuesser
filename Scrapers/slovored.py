@@ -1,7 +1,7 @@
+import string
+
 import httpx
 from bs4 import BeautifulSoup
-import json
-import string
 
 BASE_URL: str = "https://slovored.com"
 BASE_URLS: list[str] = [
@@ -17,13 +17,16 @@ BASE_URLS: list[str] = [
 BULGARIAN_ALPHABET: str = "абвгдежзийклмнопрстуфхцчшщъьюя"
 ENGLISH_ALPHABET: str = string.ascii_lowercase
 
-async def send_request(client: httpx.AsyncClient, url: str) -> str:
+async def get_html_response(client: httpx.AsyncClient, url: str) -> str:
     response = await client.get(url)
     return response.text
 
-def parse_words(html: str) -> set[str]:
+def get_anchors(html: str):
     soup = BeautifulSoup(html, "html.parser")
-    matches = soup.find_all("a", href=True)
+    return soup.find_all("a", href=True)
+
+def parse_words(html: str) -> set[str]:
+    matches = get_anchors(html)
     words: set[str] = set()
     start_adding = False
     for match in matches:
@@ -35,12 +38,11 @@ def parse_words(html: str) -> set[str]:
     return words
 
 def parse_sublinks_from_english_page(html: str) -> set[str]:
-    soup = BeautifulSoup(html, "html.parser")
-    matches = soup.find_all("a", href=True)
+    matches = get_anchors(html)
     sublinks: set[str] = set()
-    if "Български думи" not in html:
-        print(html)
+
     bulgarian_words_text_element_index = html.index("Български думи")
+
     for match in matches:
         if html.index(match["href"]) < bulgarian_words_text_element_index:
             continue
@@ -50,8 +52,7 @@ def parse_sublinks_from_english_page(html: str) -> set[str]:
     return sublinks
 
 def parse_sublinks(html: str) -> set[str]:
-    soup = BeautifulSoup(html, "html.parser")
-    matches = soup.find_all("a", href=True)
+    matches = get_anchors(html)
     sublinks: set[str] = set()
 
     for match in matches:
@@ -66,7 +67,7 @@ async def parse_initial_links() -> set[str]:
     scraped_links: set[str] = set()
     async with httpx.AsyncClient() as client:
         for index, link in enumerate(BASE_URLS):
-            html = await send_request(client, link)
+            html = await get_html_response(client, link)
             if index < 3:
                 scraped_links.update(parse_sublinks_from_english_page(html))
                 continue
@@ -74,25 +75,22 @@ async def parse_initial_links() -> set[str]:
     return scraped_links
 
 all_scraped_links: set[str] = set()
-async def recursively_parse_links(links: set[str]):
-    if len(links) == 0:
+async def recursively_parse_links(client: httpx.AsyncClient, links: set[str]):
+    if not links:
         return
-    async with httpx.AsyncClient() as client:
-        for link in links.copy():
-            html = await send_request(client, link)
-            new_links = parse_sublinks(html)
-            all_scraped_links.update(new_links)
-            await recursively_parse_links(new_links)
+    for link in links.copy():
+        html = await get_html_response(client, link)
+        new_links = parse_sublinks(html)
+        all_scraped_links.update(new_links)
+        await recursively_parse_links(client, new_links)
 
-async def scrape_slovored():
+async def scrape_slovored() -> set[str]:
     all_scraped_links.update(await parse_initial_links())
-    await recursively_parse_links(all_scraped_links)
-    print(len(all_scraped_links))
-
+    client = httpx.AsyncClient()
+    await recursively_parse_links(client, all_scraped_links)
     total_words: set[str] = set()
-    async with httpx.AsyncClient() as client:
-        for link in all_scraped_links:
-            html = await send_request(client, link)
-            total_words.update(parse_words(html))
-    with open("slovored.json", "w", encoding="utf-8") as f:
-        json.dump(list(total_words), f, indent=2, ensure_ascii=False)
+    for link in all_scraped_links:
+        html = await get_html_response(client, link)
+        total_words.update(parse_words(html))
+    await client.aclose()
+    return total_words

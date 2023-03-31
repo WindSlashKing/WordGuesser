@@ -3,7 +3,7 @@ use std::process::Command;
 
 pub fn allow_cyrillic_in_console() {
     Command::new("cmd")
-        .args(["/C", "chcp", "1251", ">", "0"])
+        .args(["/C", "chcp", "855", ">", "nul"])
         .output()
         .expect("Failed to execute command");
 }

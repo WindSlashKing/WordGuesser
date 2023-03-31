@@ -1,24 +1,25 @@
 import httpx
 from bs4 import BeautifulSoup
-import json
 
 BASE_URL: str = "https://bg.wiktionary.org/w/index.php?title=Категория:Думи_в_българския_език&from=А"
 
-async def send_request(client: httpx.AsyncClient, url: str) -> str:
+async def get_html_response(client: httpx.AsyncClient, url: str) -> str:
     response = await client.get(url)
     return response.text
 
-def parse_next_page_url(html: str) -> str:
+def get_anchors(html: str):
     soup = BeautifulSoup(html, "html.parser")
-    matches = soup.find_all("a", href=True)
+    return soup.find_all("a", href=True)
+
+def parse_next_page_url(html: str) -> str:
+    matches = get_anchors(html)
     for match in matches:
         if match.get_text() == "следваща страница":
             return BASE_URL + match["href"]
     raise IndexError("Reached end of pages")
         
 def parse_words(html: str) -> set[str]:
-    soup = BeautifulSoup(html, "html.parser")
-    matches = soup.find_all("a", href=True)
+    matches = get_anchors(html)
 
     element_words: list[str] = [match.get_text() for match in matches]
 
@@ -36,9 +37,9 @@ def parse_words(html: str) -> set[str]:
     words = set(word.lower() for word in after_first_split[:second_split_index - 1])
     return words
 
-async def scrape_wiktionary():
+async def scrape_wiktionary() -> set[str]:
     client = httpx.AsyncClient()
-    html = await send_request(client, BASE_URL)
+    html = await get_html_response(client, BASE_URL)
     total_words: set[str] = set()
     while True:
         total_words.update(parse_words(html))
@@ -46,10 +47,6 @@ async def scrape_wiktionary():
             next_page_url = parse_next_page_url(html)
         except IndexError:
             break
-        html = await send_request(client, next_page_url)
-        print(len(total_words))
-    
-    with open("dictionary.json", "w", encoding="utf-8") as f:
-        json.dump(total_words, f, indent=2, ensure_ascii=False)
-
+        html = await get_html_response(client, next_page_url)
     await client.aclose()
+    return total_words

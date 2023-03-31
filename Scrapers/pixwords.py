@@ -1,6 +1,5 @@
 import httpx
 from bs4 import BeautifulSoup
-import json
 
 def get_pages_urls() -> set[str]:
     return set(f"https://pixwords-help.info/bg/?all&page={i}" for i in range(1, 67))
@@ -30,7 +29,7 @@ def parse_all_words(html: str) -> set[str]:
 async def scrape_pixwords() -> set[str]:
     urls = get_pages_urls()
     html_responses = await get_html_responses(urls)
-    words: set[str] = set()
+    total_words: set[str] = set()
     for html_response in html_responses:
-        words.update(parse_all_words(html_response))
-    return words
+        total_words.update(parse_all_words(html_response))
+    return total_words
