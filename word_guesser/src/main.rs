@@ -6,9 +6,10 @@ use std::time::Instant;
 mod inputs;
 
 fn main() {
-
+    inputs::allow_cyrillic_in_console();
     let word_length = inputs::get_length_input();
     let scrambled_word = inputs::get_word_input();
+    let position_letter_map = inputs::get_additional_word_info();
 
     let file_path = r"..\Data\all_bulgarian_words.json";
     let dictionary = parse_json(file_path);
@@ -19,7 +20,7 @@ fn main() {
     
     let scoreboard = sort_scoreboard(scoreboard);
     
-    let filtered_scoreboard = filter_scoreboard(scoreboard, &scrambled_word, word_length);
+    let filtered_scoreboard = filter_scoreboard(scoreboard, &scrambled_word, word_length, position_letter_map);
     
     let elapsed_time = start_time.elapsed();
     
@@ -59,28 +60,22 @@ fn sort_scoreboard(scoreboard: HashMap<String, usize>) -> HashMap<String, usize>
     sorted_vec.into_iter().collect::<HashMap<String, usize>>()
 }
 
-fn filter_scoreboard(scoreboard: HashMap<String, usize>, scrambled_word: &str, length: usize) -> HashMap<String, usize> {
-    scoreboard
+fn filter_scoreboard(scoreboard: HashMap<String, usize>, scrambled_word: &str, length: usize, position_letter_map: Option<HashMap<u8, char>>) -> HashMap<String, usize> {
+    let mut filtered_scoreboard: HashMap<String, usize> = scoreboard
         .into_iter()
         .filter(|(k, _)| k.chars().count() == length)
-        .filter(|(k, _)| {
-            for char in k.chars() {
-                if !scrambled_word.contains(char) {
-                    return false;
-                }
-            }
-            true
-        })
-        .filter(|(k, _)| {
-            // filter words with duplicate characters
-            for c in k.chars() {
-                if count_char_instances(k, c) > count_char_instances(scrambled_word, c) {
-                    return false;
-                }
-            }
-            true
-        })
-        .collect()
+        .filter(|(k, _)| k.chars().all(|c| scrambled_word.contains(c)))
+        .filter(|(k, _)| k.chars().all(|c| count_char_instances(k, c) <= count_char_instances(scrambled_word, c)))
+        .collect();
+
+    if let Some(letter_map) = position_letter_map {
+        for (position, letter) in letter_map {
+            filtered_scoreboard.retain(|word, _| {
+                word.chars().nth((position as usize) - 1).unwrap() == letter
+            });
+        }
+    }
+    filtered_scoreboard
 }
 
 fn count_char_instances(string: &str, character: char) -> usize {
