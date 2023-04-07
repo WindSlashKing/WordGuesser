@@ -10,3 +10,8 @@ In the Data folder there is a JSON file filled with every valid bulgarian word (
 The program uses a hashmap to build a score for each word in the dictionary. 
 The score is calculated by counting how many of the input characters are present in each word in the dictionary.
 The hashmap is then filtered and sorted. The remaining items in the hashmap are the final result that is outputted in the console.
+
+### Possible improvements
+- Removing unwraps and expects from the rust project and adding error handling
+- Making file paths cross-platform (currently only Windows)
+- Adding a GUI
